@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/utils";
 import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
@@ -9,7 +9,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await getSupabaseClient().auth.getSession();
       if (data.session) {
         router.replace("/");
       }
