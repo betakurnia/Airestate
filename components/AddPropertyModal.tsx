@@ -2,6 +2,24 @@ import { supabase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type LatLng = { lat: number; lng: number };
+
+type AddPropertyModalProps = {
+  setShowModal: (show: boolean) => void;
+  price: string;
+  setPrice: (v: string) => void;
+  imageFile: File | null;
+  setImageFile: (f: File | null) => void;
+  loading: boolean;
+  setLoading: (v: boolean) => void;
+  error: string;
+  setError: (v: string) => void;
+  success: string;
+  setSuccess: (v: string) => void;
+  clickedPosition: LatLng | null;
+  setClickedPosition: (v: LatLng | null) => void;
+};
+
 export default function AddPropertyModal({
   setShowModal,
   price,
@@ -16,7 +34,7 @@ export default function AddPropertyModal({
   setSuccess,
   clickedPosition,
   setClickedPosition,
-}: any) {
+}: AddPropertyModalProps) {
   async function getUserId() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;

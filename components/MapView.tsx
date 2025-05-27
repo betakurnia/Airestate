@@ -2,6 +2,27 @@ import { GoogleMap, OverlayView, useJsApiLoader } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { getGoogleMapsApiKey } from "@/lib/utils";
 
+type LatLng = { lat: number; lng: number };
+type Property = {
+  id: string;
+  user_id: string;
+  price: string;
+  image: string;
+  lat: number;
+  lng: number;
+  imageUrl: string;
+};
+type ModalData = { image: string; price: string } | null;
+
+type MapViewProps = {
+  properties: Property[];
+  setModalData: (data: ModalData) => void;
+  setClickedPosition: (pos: LatLng) => void;
+  setShowModal: (show: boolean) => void;
+  ignoreNextMapClick: boolean;
+  setIgnoreNextMapClick: (v: boolean) => void;
+};
+
 const containerStyle = {
   width: "100%",
   height: "100vh",
@@ -19,7 +40,7 @@ export default function MapView({
   setShowModal,
   ignoreNextMapClick,
   setIgnoreNextMapClick,
-}: any) {
+}: MapViewProps) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: getGoogleMapsApiKey(),
   });
@@ -45,7 +66,7 @@ export default function MapView({
         setShowModal(true);
       }}
     >
-      {properties.map((property: any) => (
+      {properties.map((property) => (
         <OverlayView
           key={property.id}
           position={{ lat: property.lat, lng: property.lng }}

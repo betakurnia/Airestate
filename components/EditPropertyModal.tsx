@@ -2,6 +2,34 @@ import { supabase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type Property = {
+  id: string;
+  user_id: string;
+  price: string;
+  image: string;
+  lat: number;
+  lng: number;
+  imageUrl: string;
+};
+
+type EditPropertyModalProps = {
+  editModalData: Property | null;
+  setEditModalData: (v: Property | null) => void;
+  editPrice: string;
+  setEditPrice: (v: string) => void;
+  editLat: number;
+  setEditLat: (v: number) => void;
+  editLng: number;
+  setEditLng: (v: number) => void;
+  editImageFile: File | null;
+  setEditImageFile: (f: File | null) => void;
+  loading: boolean;
+  setLoading: (v: boolean) => void;
+  error: string;
+  setError: (v: string) => void;
+  setSuccess: (v: string) => void;
+};
+
 export default function EditPropertyModal({
   editModalData,
   setEditModalData,
@@ -18,7 +46,7 @@ export default function EditPropertyModal({
   error,
   setError,
   setSuccess,
-}: any) {
+}: EditPropertyModalProps) {
   async function getUserId() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
@@ -28,6 +56,11 @@ export default function EditPropertyModal({
     e.preventDefault();
     setLoading(true);
     setError("");
+    if (!editModalData) {
+      setError("No property selected for editing.");
+      setLoading(false);
+      return;
+    }
     let imagePath = editModalData.image;
     if (editImageFile) {
       const userId = await getUserId();
@@ -97,6 +130,9 @@ export default function EditPropertyModal({
               }}
               required
             />
+            <span className="text-xs text-gray-500 mt-1">
+              {editPrice ? `Formatted: $${formatPrice(editPrice)}` : ""}
+            </span>
           </label>
           <label className="flex flex-col gap-1">
             Image

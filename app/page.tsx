@@ -10,24 +10,36 @@ import MarkerModal from "@/components/MarkerModal";
 import Toast from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 
+type LatLng = { lat: number; lng: number };
+type Property = {
+  id: string;
+  user_id: string;
+  price: string;
+  image: string;
+  lat: number;
+  lng: number;
+  imageUrl: string;
+};
+type ModalData = { image: string; price: string } | null;
+
 export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [price, setPrice] = useState("");
-  const [imageFile, setImageFile] = useState(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [modalData, setModalData] = useState<any | null>(null);
-  const [clickedPosition, setClickedPosition] = useState<any | null>(null);
-  const [properties, setProperties] = useState<any[]>([]);
+  const [modalData, setModalData] = useState<ModalData>(null);
+  const [clickedPosition, setClickedPosition] = useState<LatLng | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [ignoreNextMapClick, setIgnoreNextMapClick] = useState(false);
-  const [editModalData, setEditModalData] = useState<any | null>(null);
-  const [deleteModalData, setDeleteModalData] = useState<any | null>(null);
+  const [editModalData, setEditModalData] = useState<Property | null>(null);
+  const [deleteModalData, setDeleteModalData] = useState<Property | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [editLat, setEditLat] = useState(0);
   const [editLng, setEditLng] = useState(0);
-  const [editImageFile, setEditImageFile] = useState(null);
-  const toastRef = useRef(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const toastRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchProperties() {
