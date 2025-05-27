@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useState, useRef } from "react";
 
 type Property = {
   id: string;
@@ -47,6 +48,18 @@ export default function EditPropertyModal({
   setError,
   setSuccess,
 }: EditPropertyModalProps) {
+  const [errorToast, setErrorToast] = useState("");
+  const errorToastRef = useRef<HTMLDivElement>(null);
+
+  function showErrorToast(msg: string) {
+    setErrorToast(msg);
+    if (errorToastRef.current) errorToastRef.current.style.opacity = "1";
+    setTimeout(() => {
+      if (errorToastRef.current) errorToastRef.current.style.opacity = "0";
+      setTimeout(() => setErrorToast(""), 500);
+    }, 2000);
+  }
+
   async function getUserId() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
@@ -54,10 +67,18 @@ export default function EditPropertyModal({
   }
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    if (!editPrice || Number(editPrice) <= 0) {
+      showErrorToast("Please enter a valid price.");
+      return;
+    }
+    if (editLat === 0 || editLng === 0) {
+      showErrorToast("Please enter a valid latitude and longitude.");
+      return;
+    }
+    setLoading(true);
     if (!editModalData) {
-      setError("No property selected for editing.");
+      showErrorToast("No property selected for editing.");
       setLoading(false);
       return;
     }
@@ -109,12 +130,21 @@ export default function EditPropertyModal({
           ×
         </button>
         <h2 className="text-xl font-bold mb-4">Edit Property</h2>
+        {errorToast && (
+          <div
+            ref={errorToastRef}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-red-600 text-white px-6 py-3 rounded shadow-lg transition-opacity duration-500"
+            style={{ opacity: 1 }}
+          >
+            {errorToast}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
             Price
             <Input
               type="number"
-              min={1}
+              min={0}
               value={editPrice}
               onKeyDown={(e) =>
                 (e.key === "-" ||
@@ -125,10 +155,9 @@ export default function EditPropertyModal({
               }
               onChange={(e) => {
                 const val = e.target.value;
-                if (/^\d*$/.test(val) && Number(val) > 0) setEditPrice(val);
+                if (/^\d*$/.test(val)) setEditPrice(val);
                 else if (val === "") setEditPrice("");
               }}
-              required
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -153,7 +182,7 @@ export default function EditPropertyModal({
             </div>
             <span className="text-xs text-gray-500 mt-1">
               {editModalData?.image
-                ? `Current file: ${editModalData.image}`
+                ? `Selected: ${editModalData.image}`
                 : "No file chosen"}
             </span>
           </label>
@@ -164,7 +193,6 @@ export default function EditPropertyModal({
           <Button type="submit" disabled={loading}>
             {loading ? "Saving..." : "Submit"}
           </Button>
-          {error && <div className="text-red-600 text-sm">{error}</div>}
         </form>
       </div>
     </div>

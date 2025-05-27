@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useState, useRef } from "react";
 
 type LatLng = { lat: number; lng: number };
 
@@ -35,6 +36,18 @@ export default function AddPropertyModal({
   clickedPosition,
   setClickedPosition,
 }: AddPropertyModalProps) {
+  const [errorToast, setErrorToast] = useState("");
+  const errorToastRef = useRef<HTMLDivElement>(null);
+
+  function showErrorToast(msg: string) {
+    setErrorToast(msg);
+    if (errorToastRef.current) errorToastRef.current.style.opacity = "1";
+    setTimeout(() => {
+      if (errorToastRef.current) errorToastRef.current.style.opacity = "0";
+      setTimeout(() => setErrorToast(""), 500);
+    }, 2000);
+  }
+
   async function getUserId() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
@@ -42,22 +55,24 @@ export default function AddPropertyModal({
   }
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
     setSuccess("");
-    const userId = await getUserId();
-    if (!userId) {
-      setError("You must be logged in to add a property.");
-      setLoading(false);
+    if (!price || Number(price) <= 0) {
+      showErrorToast("Please enter a valid price.");
       return;
     }
     if (!imageFile) {
-      setError("Please select an image file.");
-      setLoading(false);
+      showErrorToast("Please select an image file.");
       return;
     }
     if (!clickedPosition) {
-      setError("Please click on the map to select a location.");
+      showErrorToast("Please click on the map to select a location.");
+      return;
+    }
+    setLoading(true);
+    const userId = await getUserId();
+    if (!userId) {
+      showErrorToast("You must be logged in to add a property.");
       setLoading(false);
       return;
     }
@@ -68,7 +83,7 @@ export default function AddPropertyModal({
       .from("images")
       .upload(filePath, imageFile);
     if (uploadError) {
-      setError("Image upload failed: " + uploadError.message);
+      showErrorToast("Image upload failed: " + uploadError.message);
       setLoading(false);
       return;
     }
@@ -80,7 +95,7 @@ export default function AddPropertyModal({
       lng: clickedPosition.lng,
     });
     if (insertError) {
-      setError(insertError.message);
+      showErrorToast(insertError.message);
     } else {
       setSuccess("Property added!");
       setShowModal(false);
@@ -106,12 +121,21 @@ export default function AddPropertyModal({
           ×
         </button>
         <h2 className="text-xl font-bold mb-4">Add Property</h2>
+        {errorToast && (
+          <div
+            ref={errorToastRef}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-red-600 text-white px-6 py-3 rounded shadow-lg transition-opacity duration-500"
+            style={{ opacity: 1 }}
+          >
+            {errorToast}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
             Price
             <Input
               type="number"
-              min={1}
+              min={0}
               value={price}
               onKeyDown={(e) =>
                 (e.key === "-" ||
@@ -122,10 +146,9 @@ export default function AddPropertyModal({
               }
               onChange={(e) => {
                 const val = e.target.value;
-                if (/^\d*$/.test(val) && Number(val) > 0) setPrice(val);
+                if (/^\d*$/.test(val)) setPrice(val);
                 else if (val === "") setPrice("");
               }}
-              required
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -137,7 +160,6 @@ export default function AddPropertyModal({
                 accept="image/*"
                 style={{ display: "none" }}
                 onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                required
               />
               <Button
                 type="button"
@@ -162,7 +184,6 @@ export default function AddPropertyModal({
           <Button type="submit" disabled={loading}>
             {loading ? "Saving..." : "Submit"}
           </Button>
-          {error && <div className="text-red-600 text-sm">{error}</div>}
           {success && <div className="text-green-600 text-sm">{success}</div>}
         </form>
       </div>
