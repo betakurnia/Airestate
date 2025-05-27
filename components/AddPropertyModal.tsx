@@ -160,7 +160,7 @@ export default function AddPropertyModal({
             </div>
           </div>
           <Button type="submit" disabled={loading}>
-            {loading ? "Adding..." : "Submit"}
+            {loading ? "Saving..." : "Submit"}
           </Button>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           {success && <div className="text-green-600 text-sm">{success}</div>}

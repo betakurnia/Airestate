@@ -130,9 +130,6 @@ export default function EditPropertyModal({
               }}
               required
             />
-            <span className="text-xs text-gray-500 mt-1">
-              {editPrice ? `Formatted: $${formatPrice(editPrice)}` : ""}
-            </span>
           </label>
           <label className="flex flex-col gap-1">
             Image
