@@ -1,103 +1,461 @@
-import Image from "next/image";
+"use client";
+
+import {
+  GoogleMap,
+  Marker,
+  useJsApiLoader,
+  OverlayView,
+} from "@react-google-maps/api";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const containerStyle = {
+  width: "100%",
+  height: "100vh",
+};
+
+const center = {
+  lat: 40.759,
+  lng: -73.9845,
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const [showModal, setShowModal] = useState(false);
+  const [price, setPrice] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [modalData, setModalData] = useState<{
+    image: string;
+    price: string;
+  } | null>(null);
+  const [clickedPosition, setClickedPosition] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [ignoreNextMapClick, setIgnoreNextMapClick] = useState(false);
+  const [editModalData, setEditModalData] = useState<any>(null);
+  const [deleteModalData, setDeleteModalData] = useState<any>(null);
+  const [editPrice, setEditPrice] = useState("");
+  const [editLat, setEditLat] = useState(0);
+  const [editLng, setEditLng] = useState(0);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+
+  // Fetch properties from Supabase users table
+  useEffect(() => {
+    async function fetchProperties() {
+      const { data, error } = await supabase.from("users").select();
+      if (error) return;
+      // For each property, get signed image URL
+      const propertiesWithSignedUrls = await Promise.all(
+        (data || []).map(async (property: any) => {
+          let imageUrl = "";
+          if (property.image) {
+            const { data: signedUrlData } = await supabase.storage
+              .from("images")
+              .createSignedUrl(property.image, 60 * 60 * 24 * 7); // 7 days
+            imageUrl = signedUrlData?.signedUrl || "";
+          }
+          return {
+            ...property,
+            imageUrl,
+          };
+        })
+      );
+      setProperties(propertiesWithSignedUrls);
+    }
+    fetchProperties();
+  }, [success]); // refetch on success (after add)
+
+  // When opening edit modal, prefill fields
+  useEffect(() => {
+    if (editModalData) {
+      setEditPrice(editModalData.price);
+      setEditLat(editModalData.lat);
+      setEditLng(editModalData.lng);
+      setEditImageFile(null);
+    }
+  }, [editModalData]);
+
+  if (!isLoaded) return <div>Loading...</div>;
+
+  // Get current user id from Supabase
+  async function getUserId() {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+    return data.user.id;
+  }
+
+  // Handle form submit
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    const userId = await getUserId();
+    if (!userId) {
+      setError("You must be logged in to add a property.");
+      setLoading(false);
+      return;
+    }
+    if (!imageFile) {
+      setError("Please select an image file.");
+      setLoading(false);
+      return;
+    }
+    if (!clickedPosition) {
+      setError("Please click on the map to select a location.");
+      setLoading(false);
+      return;
+    }
+    // Upload image to Supabase Storage
+    const fileExt = imageFile.name.split(".").pop();
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = fileName; // or `images/${fileName}` if you want the full path
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("images")
+      .upload(filePath, imageFile);
+    if (uploadError) {
+      setError("Image upload failed: " + uploadError.message);
+      setLoading(false);
+      return;
+    }
+    // Insert property into users table
+    const { error: insertError } = await supabase.from("users").insert({
+      user_id: userId,
+      price,
+      image: filePath,
+      lat: clickedPosition.lat,
+      lng: clickedPosition.lng,
+    });
+    if (insertError) {
+      setError(insertError.message);
+    } else {
+      setSuccess("Property added!");
+      setShowModal(false);
+      setPrice("");
+      setImageFile(null);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="relative w-full h-screen">
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={center}
+        zoom={15}
+        onClick={(e) => {
+          if (ignoreNextMapClick) {
+            setIgnoreNextMapClick(false);
+            return;
+          }
+          setClickedPosition({
+            lat: e.latLng?.lat() ?? 0,
+            lng: e.latLng?.lng() ?? 0,
+          });
+          setShowModal(true);
+        }}
+      >
+        {properties.map((property) => (
+          <OverlayView
+            key={property.id}
+            position={{ lat: property.lat, lng: property.lng }}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <Button
+              className="bg-black text-white rounded-full px-4 py-2 font-bold shadow z-10"
+              style={{ minWidth: 80, minHeight: 40 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIgnoreNextMapClick(true);
+                setModalData({
+                  image: property.imageUrl,
+                  price: property.price,
+                });
+              }}
+            >
+              ${property.price}
+            </Button>
+          </OverlayView>
+        ))}
+      </GoogleMap>
+      {/* Add Button */}
+      <Button
+        className="absolute top-6 right-6 z-10"
+        onClick={async () => {
+          await supabase.auth.signOut();
+          window.location.href = "/login";
+        }}
+      >
+        Log Out
+      </Button>
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm relative">
+            <Button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowModal(false)}
+              aria-label="Close"
+              variant="ghost"
+              size="sm"
+            >
+              ×
+            </Button>
+            <h2 className="text-xl font-bold mb-4">Add Property</h2>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <label className="flex flex-col gap-1">
+                Price
+                <Input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                Image
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  required
+                />
+              </label>
+              <div>
+                <div>
+                  Latitude: {clickedPosition?.lat ?? "Click map to select"}
+                </div>
+                <div>
+                  Longitude: {clickedPosition?.lng ?? "Click map to select"}
+                </div>
+              </div>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Adding..." : "Submit"}
+              </Button>
+              {error && <div className="text-red-600 text-sm">{error}</div>}
+              {success && (
+                <div className="text-green-600 text-sm">{success}</div>
+              )}
+            </form>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+      {modalData && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg flex flex-col items-center relative min-w-[320px]">
+            {/* X icon to close modal, top right, consistent with add property modal */}
+
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
+              onClick={() => setModalData(null)}
+              aria-label="Close"
+              type="button"
+            >
+              ×
+            </button>
+            <img
+              src={modalData.image}
+              alt="Property"
+              className="w-64 h-40 object-cover rounded"
+            />
+            {/* Edit and Delete buttons below image, centered horizontally */}
+
+            <div className="mt-2 text-xl font-bold">${modalData.price}</div>
+            <div className="w-full grid mt-4 gap-4">
+              <Button
+                className="w-full bg-green-700 hover:bg-green-800 text-white"
+                onClick={() => {
+                  setModalData(null);
+                  setEditModalData({
+                    ...properties.find(
+                      (p) =>
+                        p.imageUrl === modalData?.image &&
+                        p.price === modalData?.price
+                    ),
+                  });
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                className="w-full bg-red-700 hover:bg-red-800 text-white"
+                onClick={() => {
+                  setModalData(null);
+                  setDeleteModalData({
+                    ...properties.find(
+                      (p) =>
+                        p.imageUrl === modalData?.image &&
+                        p.price === modalData?.price
+                    ),
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editModalData && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
+              onClick={() => setEditModalData(null)}
+              aria-label="Close"
+              type="button"
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold mb-4">Edit Property</h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError("");
+                let imagePath = editModalData.image;
+                // If a new image is selected, upload it
+                if (editImageFile) {
+                  const userId = await getUserId();
+                  const fileExt = editImageFile.name.split(".").pop();
+                  const fileName = `${userId}-${Date.now()}.${fileExt}`;
+                  const { data: uploadData, error: uploadError } =
+                    await supabase.storage
+                      .from("images")
+                      .upload(fileName, editImageFile);
+                  if (uploadError) {
+                    setError("Image upload failed: " + uploadError.message);
+                    setLoading(false);
+                    return;
+                  }
+                  imagePath = fileName;
+                }
+                const { error: updateError } = await supabase
+                  .from("users")
+                  .update({
+                    price: editPrice,
+                    image: imagePath,
+                    lat: editLat,
+                    lng: editLng,
+                  })
+                  .eq("id", editModalData.id);
+                if (updateError) setError(updateError.message);
+                else setEditModalData(null);
+                setLoading(false);
+                setSuccess("Property updated!");
+              }}
+              className="flex flex-col gap-4"
+            >
+              <label className="flex flex-col gap-1">
+                Price
+                <Input
+                  type="number"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                Image
+                <div className="relative">
+                  <input
+                    id="edit-image-input"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) =>
+                      setEditImageFile(e.target.files?.[0] || null)
+                    }
+                  />
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() =>
+                      document.getElementById("edit-image-input")?.click()
+                    }
+                  >
+                    Choose File
+                  </Button>
+                </div>
+                <span className="text-xs text-gray-500 mt-1">
+                  {editImageFile
+                    ? `Selected: ${editImageFile.name}`
+                    : editModalData?.image
+                    ? `Current file: ${editModalData.image}`
+                    : "No file chosen"}
+                </span>
+              </label>
+              <label className="flex flex-col gap-1">
+                Latitude
+                <Input
+                  type="number"
+                  value={editLat}
+                  onChange={(e) => setEditLat(Number(e.target.value))}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                Longitude
+                <Input
+                  type="number"
+                  value={editLng}
+                  onChange={(e) => setEditLng(Number(e.target.value))}
+                  required
+                />
+              </label>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Submit"}
+              </Button>
+              {error && <div className="text-red-600 text-sm">{error}</div>}
+            </form>
+          </div>
+        </div>
+      )}
+      {deleteModalData && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
+              onClick={() => setDeleteModalData(null)}
+              aria-label="Close"
+              type="button"
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold mb-4">
+              Are you sure you want to delete this?
+            </h2>
+            <div className="flex gap-4 mt-4">
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={async () => {
+                  setLoading(true);
+                  await supabase
+                    .from("users")
+                    .delete()
+                    .eq("id", deleteModalData.id);
+                  setDeleteModalData(null);
+                  setLoading(false);
+                  setSuccess("deleted" + Date.now());
+                }}
+              >
+                Yes, Delete
+              </Button>
+              <Button onClick={() => setDeleteModalData(null)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
