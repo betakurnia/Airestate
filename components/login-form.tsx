@@ -65,7 +65,7 @@ export function LoginForm({
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Send Magic Link"}
+              {loading ? "Sending..." : "Login"}
             </Button>
             {message && (
               <div className="text-green-600 text-center text-sm">
