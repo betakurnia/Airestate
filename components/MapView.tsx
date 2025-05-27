@@ -12,11 +12,11 @@ type Property = {
   lng: number;
   imageUrl: string;
 };
-type ModalData = { image: string; price: string } | null;
+type ModalData = Property | null;
 
 type MapViewProps = {
   properties: Property[];
-  setModalData: (data: ModalData) => void;
+  setModalData: (data: Property | null) => void;
   setClickedPosition: (pos: LatLng) => void;
   setShowModal: (show: boolean) => void;
   ignoreNextMapClick: boolean;
@@ -78,10 +78,7 @@ export default function MapView({
             onClick={(e) => {
               e.stopPropagation();
               setIgnoreNextMapClick(true);
-              setModalData({
-                image: property.imageUrl,
-                price: property.price,
-              });
+              setModalData(property);
             }}
           >
             $ {formatPrice(property.price)}

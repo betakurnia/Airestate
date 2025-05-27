@@ -23,7 +23,7 @@ export default function MarkerModal({
           ×
         </button>
         <img
-          src={modalData.image}
+          src={modalData.imageUrl}
           alt="Property"
           className="w-64 h-40 object-cover rounded"
         />
@@ -35,13 +35,7 @@ export default function MarkerModal({
             className="w-[calc(50%-8px)] bg-green-700 hover:bg-green-800 text-white"
             onClick={() => {
               setModalData(null);
-              setEditModalData({
-                ...properties.find(
-                  (p: any) =>
-                    p.imageUrl === modalData?.image &&
-                    p.price === modalData?.price
-                ),
-              });
+              setEditModalData(modalData);
             }}
           >
             Edit
@@ -50,13 +44,7 @@ export default function MarkerModal({
             className="w-[calc(50%-8px)] bg-red-700 hover:bg-red-800 text-white"
             onClick={() => {
               setModalData(null);
-              setDeleteModalData({
-                ...properties.find(
-                  (p: any) =>
-                    p.imageUrl === modalData?.image &&
-                    p.price === modalData?.price
-                ),
-              });
+              setDeleteModalData(modalData);
             }}
           >
             Delete

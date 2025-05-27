@@ -20,7 +20,7 @@ type Property = {
   lng: number;
   imageUrl: string;
 };
-type ModalData = { image: string; price: string } | null;
+type ModalData = Property | null;
 
 export default function Home() {
   const [showModal, setShowModal] = useState(false);
