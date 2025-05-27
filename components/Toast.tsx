@@ -4,7 +4,7 @@ export default function Toast({
   toastRef,
   success,
 }: {
-  toastRef: React.RefObject<HTMLDivElement>;
+  toastRef: React.RefObject<HTMLDivElement | null>;
   success: string;
 }) {
   return (
