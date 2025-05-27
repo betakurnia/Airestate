@@ -30,7 +30,7 @@ export function LoginForm({
     const { error } = await getSupabaseClient().auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin, // or your custom redirect URL
+        emailRedirectTo: window.location.origin,
       },
     });
     setLoading(false);
