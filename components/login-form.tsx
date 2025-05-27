@@ -37,7 +37,7 @@ export function LoginForm({
     if (error) {
       setError(error.message);
     } else {
-      setMessage("Check your email for the magic link!");
+      setMessage("Check your email for the login link!");
     }
   };
 
@@ -47,7 +47,7 @@ export function LoginForm({
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Sign in</CardTitle>
           <CardDescription>
-            Enter your email to receive a magic link
+            Enter your email to receive a login link
           </CardDescription>
         </CardHeader>
         <CardContent>

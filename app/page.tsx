@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useRef as useReactRef } from "react";
 
 const containerStyle = {
   width: "100%",
@@ -48,6 +49,7 @@ export default function Home() {
   const [editLat, setEditLat] = useState(0);
   const [editLng, setEditLng] = useState(0);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const toastRef = useReactRef<HTMLDivElement>(null);
 
   // Fetch properties from Supabase users table
   useEffect(() => {
@@ -84,6 +86,32 @@ export default function Home() {
       setEditImageFile(null);
     }
   }, [editModalData]);
+
+  // Toast effect
+  useEffect(() => {
+    if (success) {
+      if (toastRef.current) {
+        toastRef.current.style.opacity = "1";
+      }
+      const timeout = setTimeout(() => {
+        if (toastRef.current) {
+          toastRef.current.style.opacity = "0";
+        }
+        setTimeout(() => setSuccess(""), 500);
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        window.location.href = "/login";
+      }
+    }
+    checkAuth();
+  }, []);
 
   if (!isLoaded) return <div>Loading...</div>;
 
@@ -147,6 +175,11 @@ export default function Home() {
     setLoading(false);
   }
 
+  function formatPrice(value: string) {
+    if (!value) return "";
+    return Number(value).toLocaleString();
+  }
+
   return (
     <div className="relative w-full h-screen">
       <GoogleMap
@@ -183,7 +216,7 @@ export default function Home() {
                 });
               }}
             >
-              ${property.price}
+              $ {formatPrice(property.price)}
             </Button>
           </OverlayView>
         ))}
@@ -202,34 +235,61 @@ export default function Home() {
       {showModal && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm relative">
-            <Button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
               onClick={() => setShowModal(false)}
               aria-label="Close"
-              variant="ghost"
-              size="sm"
+              type="button"
             >
               ×
-            </Button>
+            </button>
             <h2 className="text-xl font-bold mb-4">Add Property</h2>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <label className="flex flex-col gap-1">
                 Price
                 <Input
                   type="number"
+                  min={1}
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onKeyDown={(e) =>
+                    (e.key === "-" ||
+                      e.key === "e" ||
+                      e.key === "E" ||
+                      e.key === ".") &&
+                    e.preventDefault()
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^\d*$/.test(val) && Number(val) > 0) setPrice(val);
+                    else if (val === "") setPrice("");
+                  }}
                   required
                 />
               </label>
               <label className="flex flex-col gap-1">
                 Image
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="add-image-input"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() =>
+                      document.getElementById("add-image-input")?.click()
+                    }
+                  >
+                    Choose File
+                  </Button>
+                </div>
+                <span className="text-xs text-gray-500 mt-1">
+                  {imageFile ? `Selected: ${imageFile.name}` : "No file chosen"}
+                </span>
               </label>
               <div>
                 <div>
@@ -252,9 +312,7 @@ export default function Home() {
       )}
       {modalData && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg flex flex-col items-center relative min-w-[320px]">
-            {/* X icon to close modal, top right, consistent with add property modal */}
-
+          <div className="bg-white rounded-lg p-8 shadow-lg flex flex-col items-center relative min-w-[320px]">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
               onClick={() => setModalData(null)}
@@ -268,12 +326,12 @@ export default function Home() {
               alt="Property"
               className="w-64 h-40 object-cover rounded"
             />
-            {/* Edit and Delete buttons below image, centered horizontally */}
-
-            <div className="mt-2 text-xl font-bold">${modalData.price}</div>
-            <div className="w-full grid mt-4 gap-4">
+            <div className="mt-2 text-xl font-bold">
+              $ {formatPrice(modalData.price)}
+            </div>
+            <div className="w-full flex flex-row gap-4 mt-4">
               <Button
-                className="w-full bg-green-700 hover:bg-green-800 text-white"
+                className="w-[calc(50%-8px)] bg-green-700 hover:bg-green-800 text-white"
                 onClick={() => {
                   setModalData(null);
                   setEditModalData({
@@ -288,7 +346,7 @@ export default function Home() {
                 Edit
               </Button>
               <Button
-                className="w-full bg-red-700 hover:bg-red-800 text-white"
+                className="w-[calc(50%-8px)] bg-red-700 hover:bg-red-800 text-white"
                 onClick={() => {
                   setModalData(null);
                   setDeleteModalData({
@@ -338,6 +396,12 @@ export default function Home() {
                     setLoading(false);
                     return;
                   }
+                  // Delete previous image if it exists and is different
+                  if (editModalData.image && editModalData.image !== fileName) {
+                    await supabase.storage
+                      .from("images")
+                      .remove([editModalData.image]);
+                  }
                   imagePath = fileName;
                 }
                 const { error: updateError } = await supabase
@@ -360,8 +424,20 @@ export default function Home() {
                 Price
                 <Input
                   type="number"
+                  min={1}
                   value={editPrice}
-                  onChange={(e) => setEditPrice(e.target.value)}
+                  onKeyDown={(e) =>
+                    (e.key === "-" ||
+                      e.key === "e" ||
+                      e.key === "E" ||
+                      e.key === ".") &&
+                    e.preventDefault()
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^\d*$/.test(val) && Number(val) > 0) setEditPrice(val);
+                    else if (val === "") setEditPrice("");
+                  }}
                   required
                 />
               </label>
@@ -388,31 +464,15 @@ export default function Home() {
                   </Button>
                 </div>
                 <span className="text-xs text-gray-500 mt-1">
-                  {editImageFile
-                    ? `Selected: ${editImageFile.name}`
-                    : editModalData?.image
+                  {editModalData?.image
                     ? `Current file: ${editModalData.image}`
                     : "No file chosen"}
                 </span>
               </label>
-              <label className="flex flex-col gap-1">
-                Latitude
-                <Input
-                  type="number"
-                  value={editLat}
-                  onChange={(e) => setEditLat(Number(e.target.value))}
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                Longitude
-                <Input
-                  type="number"
-                  value={editLng}
-                  onChange={(e) => setEditLng(Number(e.target.value))}
-                  required
-                />
-              </label>
+              <div className="flex flex-col gap-1">
+                <div>Latitude: {editLat}</div>
+                <div>Longitude: {editLng}</div>
+              </div>
               <Button type="submit" disabled={loading}>
                 {loading ? "Saving..." : "Submit"}
               </Button>
@@ -433,7 +493,7 @@ export default function Home() {
               ×
             </button>
             <h2 className="text-xl font-bold mb-4">
-              Are you sure you want to delete this?
+              Are you sure you want to delete this property?
             </h2>
             <div className="flex gap-4 mt-4">
               <Button
@@ -446,14 +506,24 @@ export default function Home() {
                     .eq("id", deleteModalData.id);
                   setDeleteModalData(null);
                   setLoading(false);
-                  setSuccess("deleted" + Date.now());
+                  setSuccess("Property deleted!");
                 }}
               >
-                Yes, Delete
+                Yes
               </Button>
               <Button onClick={() => setDeleteModalData(null)}>Cancel</Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {success && (
+        <div
+          ref={toastRef}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-green-600 text-white px-6 py-3 rounded shadow-lg transition-opacity duration-500"
+          style={{ opacity: 1 }}
+        >
+          {success}
         </div>
       )}
     </div>
