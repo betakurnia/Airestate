@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
@@ -49,7 +49,7 @@ export default function AddPropertyModal({
   }
 
   async function getUserId() {
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await getSupabaseClient().auth.getUser();
     if (error || !data.user) return null;
     return data.user.id;
   }
@@ -79,21 +79,23 @@ export default function AddPropertyModal({
     const fileExt = imageFile.name.split(".").pop();
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
     const filePath = fileName;
-    const { error: uploadError } = await supabase.storage
-      .from("images")
+    const { error: uploadError } = await getSupabaseClient()
+      .storage.from("images")
       .upload(filePath, imageFile);
     if (uploadError) {
       showErrorToast("Image upload failed: " + uploadError.message);
       setLoading(false);
       return;
     }
-    const { error: insertError } = await supabase.from("users").insert({
-      user_id: userId,
-      price,
-      image: filePath,
-      lat: clickedPosition.lat,
-      lng: clickedPosition.lng,
-    });
+    const { error: insertError } = await getSupabaseClient()
+      .from("users")
+      .insert({
+        user_id: userId,
+        price,
+        image: filePath,
+        lat: clickedPosition.lat,
+        lng: clickedPosition.lng,
+      });
     if (insertError) {
       showErrorToast(insertError.message);
     } else {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase, getGoogleMapsApiKey } from "@/lib/utils";
+import { getSupabaseClient, getGoogleMapsApiKey } from "@/lib/utils";
 import MapView from "@/components/MapView";
 import AddPropertyModal from "@/components/AddPropertyModal";
 import EditPropertyModal from "@/components/EditPropertyModal";
@@ -43,14 +43,14 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchProperties() {
-      const { data, error } = await supabase.from("users").select();
+      const { data, error } = await getSupabaseClient().from("users").select();
       if (error) return;
       const propertiesWithSignedUrls = await Promise.all(
         (data || []).map(async (property) => {
           let imageUrl = "";
           if (property.image) {
-            const { data: signedUrlData } = await supabase.storage
-              .from("images")
+            const { data: signedUrlData } = await getSupabaseClient()
+              .storage.from("images")
               .createSignedUrl(property.image, 60 * 60 * 24 * 7);
             imageUrl = signedUrlData?.signedUrl || "";
           }
@@ -91,7 +91,7 @@ export default function Home() {
 
   useEffect(() => {
     async function checkAuth() {
-      const { data, error } = await supabase.auth.getUser();
+      const { data, error } = await getSupabaseClient().auth.getUser();
       if (error || !data.user) {
         window.location.href = "/login";
       }
@@ -114,7 +114,7 @@ export default function Home() {
       <Button
         className="absolute top-6 right-6 z-10"
         onClick={async () => {
-          await supabase.auth.signOut();
+          await getSupabaseClient().auth.signOut();
           window.location.href = "/login";
         }}
       >

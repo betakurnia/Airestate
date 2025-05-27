@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
@@ -61,7 +61,7 @@ export default function EditPropertyModal({
   }
 
   async function getUserId() {
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await getSupabaseClient().auth.getUser();
     if (error || !data.user) return null;
     return data.user.id;
   }
@@ -87,8 +87,8 @@ export default function EditPropertyModal({
       const userId = await getUserId();
       const fileExt = editImageFile.name.split(".").pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("images")
+      const { error: uploadError } = await getSupabaseClient()
+        .storage.from("images")
         .upload(fileName, editImageFile);
       if (uploadError) {
         setError("Image upload failed: " + uploadError.message);
@@ -96,11 +96,13 @@ export default function EditPropertyModal({
         return;
       }
       if (editModalData.image && editModalData.image !== fileName) {
-        await supabase.storage.from("images").remove([editModalData.image]);
+        await getSupabaseClient()
+          .storage.from("images")
+          .remove([editModalData.image]);
       }
       imagePath = fileName;
     }
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseClient()
       .from("users")
       .update({
         price: editPrice,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,7 +27,7 @@ export function LoginForm({
     setLoading(true);
     setMessage("");
     setError("");
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await getSupabaseClient().auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: window.location.origin, // or your custom redirect URL

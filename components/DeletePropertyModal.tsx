@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export default function DeletePropertyModal({
@@ -26,7 +26,7 @@ export default function DeletePropertyModal({
             className="bg-red-600 hover:bg-red-700 text-white"
             onClick={async () => {
               setLoading(true);
-              await supabase
+              await getSupabaseClient()
                 .from("users")
                 .delete()
                 .eq("id", deleteModalData.id);
